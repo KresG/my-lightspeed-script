@@ -4,7 +4,7 @@
 // @match        */admin/domains
 // @version      1
 // @author       Kres G - eCom Support
-// @description  Display domain CNAME and A Records using Google DNS.
+// @description  Display domain CNAME and A Records using Google DNS
 // @grant        none
 // @updateURL    https://github.com/KresG/my-lightspeed-script/raw/main/C-Series/domainDnsChecker.meta.js
 // @downloadURL  https://github.com/KresG/my-lightspeed-script/raw/main/C-Series/domainDnsChecker.user.js
