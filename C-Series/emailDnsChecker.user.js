@@ -2,10 +2,12 @@
 // @name         Email DNS Records Checker
 // @namespace    http://tampermonkey.net/
 // @match        */admin/settings/company/email_dns
-// @version      1
+// @version      1.1
 // @author       Kres G - eCom Support
 // @description  Display DNS records, check CNAME, DMARC, and DKIM records using Google DNS API
 // @grant        none
+// @updateURL    https://github.com/KresG/my-lightspeed-script/raw/main/C-Series/emailDnsChecker.meta.js
+// @downloadURL  https://github.com/KresG/my-lightspeed-script/raw/main/C-Series/emailDnsChecker.user.js
 // ==/UserScript==
 
 (function() {
