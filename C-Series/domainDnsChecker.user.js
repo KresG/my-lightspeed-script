@@ -2,9 +2,9 @@
 // @name         Domain DNS Checker
 // @namespace    http://tampermonkey.net/
 // @match        */admin/domains
-// @version      1.1
+// @version      1.2
 // @author       Kres G - eCom Support
-// @description  Display domain CNAME and A Records using Google DNS
+// @description  Display domain CNAME and A Records using Google DNS (Added Conflictiing Records)
 // @grant        none
 // @updateURL    https://github.com/KresG/my-lightspeed-script/raw/main/C-Series/domainDnsChecker.meta.js
 // @downloadURL  https://github.com/KresG/my-lightspeed-script/raw/main/C-Series/domainDnsChecker.user.js
@@ -66,9 +66,11 @@
     function checkARecords(aRecords, expectedRecords) {
         const records = aRecords.split(', ').map(record => record.trim());
         const missingRecords = expectedRecords.filter(record => !records.includes(record));
+        const unexpectedRecords = records.filter(record => !expectedRecords.includes(record));
         return {
-            allPresent: missingRecords.length === 0,
-            missingRecords
+            allPresent: missingRecords.length === 0 && unexpectedRecords.length === 0,
+            missingRecords,
+            unexpectedRecords
         };
     }
 
@@ -128,9 +130,10 @@
                         const cnameRecord = await fetchCnameRecord(subDomainName);
                         const aRecord = await fetchARecord(domainName);
 
-                        const { allPresent, missingRecords } = checkARecords(aRecord, expectedRecords);
+                        const { allPresent, missingRecords, unexpectedRecords } = checkARecords(aRecord, expectedRecords);
                         const aRecordStatusIcon = allPresent ? '✔️' : '❌';
                         const aRecordMissingText = !allPresent ? `<br><strong>Required A Records:</strong> ${expectedRecords.join(', ')}` : '';
+                        const aRecordConflictText = unexpectedRecords.length > 0 ? `<br><strong>Conflict:</strong> Unexpected A Records found - ${unexpectedRecords.join(', ')}` : '';
 
                         const cnameStatusIcon = checkCnameFormat(cnameRecord, expectedCname) ? '✔️' : '❌';
                         const cnameMissingText = cnameStatusIcon === '❌' ? `<br><strong>Required CNAME Record:</strong> ${expectedCname}` : '';
@@ -153,6 +156,7 @@
                             <strong>Domain:</strong> ${domainName}<br>
                             <strong>A Record:</strong> <a href="https://dns.google/resolve?name=${encodeURIComponent(domainName)}&type=A" target="_blank">${aRecord} ${aRecordStatusIcon}</a>
                             ${aRecordMissingText}
+                            ${aRecordConflictText}
                         `;
                         domainCell.style.border = '1px solid #ddd';
                         domainCell.style.padding = '8px';
@@ -170,6 +174,7 @@
                         <ul>
                             <li>If the CNAME record is missing, trying to access the subdomain might result in an error.</li>
                             <li>If the A record is missing, trying to access the domain might also result in an error.</li>
+                            <li>If there are unexpected A records, these may indicate a conflict that could cause issues with the domain. Request to take note of the conflict record and delete it in their domain DNS portal.</li>
                         </ul>
                         </br><p>After updating the DNS records, it may take some time for the changes to propagate. To speed up the process and trigger the SSL certificate, it might be necessary to delete and re-add the domain. However, always get permission from the merchant before doing this because deleting and re-adding the domain can affect both the subdomain and the domain.</p>
                         </br><p><strong>Helpful Links:</strong></p>
