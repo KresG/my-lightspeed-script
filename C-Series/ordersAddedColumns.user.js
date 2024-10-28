@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @author       Kres G.
-// @description  Adds Payment provider and order ID data to the orders page
+// @description  Adds Payment provider, order ID and region data to the orders page
 // @match        */admin/orders*
 // @grant        none
 // ==/UserScript==
