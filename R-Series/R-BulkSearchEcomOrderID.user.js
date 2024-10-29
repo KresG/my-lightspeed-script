@@ -4,7 +4,7 @@
 // @version      1.0
 // @description  Search eCom Order ID. This is useful to easily find the order especially if mx changed the date.
 // @author       Kres G.
-// @match        */?form_name=ui_tab&tab=reports
+// @match        */?name=reports.sales.listings.raw_transactions*
 // @grant        none
 // ==/UserScript==
 
