@@ -2,7 +2,7 @@
 // @name         R - Bulk search eCom Order ID
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Search eCom Order ID in bulk. The eCom order ID is the number in the order page URL. This is useful to easily find the order especially if mx changed the date.
+// @description  This is helpful for quickly locating the order(s), particularly if the date was changed or if you're looking for eCom orders that haven't synced to retail yet. You can run the script in retail, then navigate to Reports and refresh the page.
 // @author       Kres G.
 // @match        */?form_name=ui_tab&tab=reports
 // @grant        none
