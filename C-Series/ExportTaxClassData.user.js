@@ -11,13 +11,25 @@
 (function() {
     'use strict';
 
-    // Function to fetch JSON data
-    async function fetchJSON(url) {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+    // Function to fetch JSON data with retry logic
+    async function fetchJSONWithRetry(url, retries = 3) {
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(url, { headers });
+                if (!response.ok) {
+                    console.warn(`Attempt ${i + 1} failed: ${response.status} ${response.statusText}`);
+                    if (response.status === 409) continue; // Retry for 409 errors
+                    throw new Error(`Failed to fetch ${url}: ${response.statusText} (HTTP ${response.status})`);
+                }
+                return await response.json();
+            } catch (error) {
+                if (i === retries - 1) throw error;
+            }
         }
-        return response.json();
     }
 
     // Function to download CSV
@@ -40,7 +52,7 @@
     // Function to convert data to CSV format
     function convertToCSV(rows) {
         const csvRows = [];
-        csvRows.push('smart_tax_excluded_products,excluded_products,smart_tax_filters_categories,included_products');  // CSV header
+        csvRows.push('smart_tax_excluded_products,excluded_products,smart_tax_filters_categories,included_products'); // CSV header
 
         const maxLength = Math.max(
             ...rows.map(row => Math.max(
@@ -53,7 +65,7 @@
 
         for (let i = 0; i < maxLength; i++) {
             rows.forEach(row => {
-                const smartTaxExcluded = row.smart_tax_excluded_products[i] || '';  // Handle cases where the index exceeds the array length
+                const smartTaxExcluded = row.smart_tax_excluded_products[i] || '';
                 const excluded = row.excluded_products[i] || '';
                 const smartTaxFilters = row.smart_tax_filters_categories[i] || '';
                 const includedProducts = row.included_products[i] || '';
@@ -66,45 +78,47 @@
 
     // Fetch product data for collection
     async function fetchProductData(collectionId) {
-        const url = `/admin/collections/${collectionId}/products.json`; // Fetch all products at once
-        const json = await fetchJSON(url);
-        const productIds = json.collection_products.map(product => product.product_id);
-        return removeDuplicates(productIds); // Remove duplicates from product IDs
+        const url = `/admin/collections/${collectionId}/products.json`;
+        const json = await fetchJSONWithRetry(url);
+
+        const productIds = json?.collection_products?.map(product => product.product_id) || [];
+        return removeDuplicates(productIds);
     }
 
-    // Fetch all collection data
+    // Fetch collection data
     async function fetchCollectionData(collectionId) {
-        const url = `/admin/collections/${collectionId}.json`; // Fetch all collection data at once
-        const json = await fetchJSON(url);
+        const url = `/admin/collections/${collectionId}.json`;
+        const json = await fetchJSONWithRetry(url);
 
-        const {
-            smart_tax_excluded_products = [],
-            data: { excluded_products = [] } = {},
-            smart_tax_filters: { categories = [] } = {}
-        } = json.collection;
+        if (!json || !json.collection) {
+            console.error('Collection data is null or missing:', json);
+            return {
+                smart_tax_excluded_products: [],
+                excluded_products: [],
+                smart_tax_filters_categories: []
+            };
+        }
 
+        const collection = json.collection;
         return {
-            smart_tax_excluded_products,
-            excluded_products,
-            smart_tax_filters_categories: categories
+            smart_tax_excluded_products: collection.smart_tax_excluded_products || [],
+            excluded_products: collection.data?.excluded_products || [],
+            smart_tax_filters_categories: collection.smart_tax_filters?.categories || []
         };
     }
 
     // Main function to fetch all data
     async function fetchAllData(collectionId) {
-        // Fetch both collection and product data
         const collectionDataPromise = fetchCollectionData(collectionId);
         const productDataPromise = fetchProductData(collectionId);
 
-        // Wait for both data promises to resolve
         const [collectionData, productData] = await Promise.all([collectionDataPromise, productDataPromise]);
 
-        // Remove duplicates globally across all columns
         const allData = [{
             smart_tax_excluded_products: removeDuplicates(collectionData.smart_tax_excluded_products),
             excluded_products: removeDuplicates(collectionData.excluded_products),
             smart_tax_filters_categories: removeDuplicates(collectionData.smart_tax_filters_categories),
-            included_products: removeDuplicates(productData)  // Ensure product IDs are unique
+            included_products: removeDuplicates(productData)
         }];
 
         return allData;
@@ -112,7 +126,6 @@
 
     // Fetch and export
     async function run() {
-        // Extract the collection ID from the URL
         const match = window.location.pathname.match(/\/collections\/(\d+)/);
         if (!match) {
             console.error('Failed to extract collection ID from the URL.');
@@ -131,7 +144,7 @@
         }
     }
 
-    // Create a Export button
+    // Create Export button
     const button = document.createElement('button');
     button.textContent = 'Export Data';
     button.style.padding = '10px 20px';
@@ -142,19 +155,15 @@
     button.style.cursor = 'pointer';
 
     button.addEventListener('click', async () => {
-        // Disable the button to prevent repeated clicks
         button.disabled = true;
         button.textContent = 'Exporting...';
 
-        // Call the main function to fetch and export the data
         await run();
 
-        // Re-enable the button after the process is complete
         button.disabled = false;
         button.textContent = 'Export Data';
     });
 
-    // Insert the button after the selector
     const target = document.querySelector('div.section-header');
     if (target) {
         target.appendChild(button);
