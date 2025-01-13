@@ -44,7 +44,7 @@
 
             // Navigate to the DNS array in the JSON data
             const domains = data?.shop?.data?.email_validation?.domains;
-            const domainKey = Object.keys(domains)[0];  // Get the first domain key
+            const domainKey = Object.keys(domains).pop(); // Get the last domain key
             const dnsRecords = domains?.[domainKey]?.dns;
 
             if (!dnsRecords || !Array.isArray(dnsRecords)) {
