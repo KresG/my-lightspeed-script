@@ -32,8 +32,10 @@
         header.style.alignItems = 'center';
         header.style.marginBottom = '10px';
 
-        let title = document.createElement('h3');
-        title.textContent = 'Data Comparison Tool';
+        let title = document.createElement('div');
+        title.innerHTML =
+            `<h3>Data Comparison Tool</h3><h6><a href="https://lightspeedhq.atlassian.net/wiki/spaces/CLOUD/pages/1236041889/Basic+Reports+Column+Breakdown+Data+Calculation" target="_blank" style="color:#007BFF; text-decoration:none;">
+        Basic Reports: Column Breakdown & Data Calculation</a></h6>`;
         title.style.margin = '0';
         title.style.flexGrow = '1';
 
@@ -75,22 +77,40 @@
 
     // Extract Data
     function parseData(input) {
-        let lines = input.trim().split("\n").map(line => line.trim().split(/\s+/)); // Splitting on one or more spaces
+        let lines = input.trim().split("\n").map(line => line.trim().split(/\s+/));
         let dataMap = new Map();
+        let duplicateKeys = new Set();
+        let seenKeys = new Set();
+
         for (let line of lines) {
-            if (line.length < 2) continue; // Ignore invalid rows
-            let key = line[0].trim(); // First column as key
+            if (line.length < 2) continue;
+            let key = line[0].trim();
             let value = line.slice(1).map(v => v.trim());
+
+            if (seenKeys.has(key)) {
+                duplicateKeys.add(key); // Track duplicate IDs
+            }
+            seenKeys.add(key);
+
             dataMap.set(key, value);
         }
-        return dataMap;
+
+        return { dataMap, duplicateKeys }; // Return both data and duplicates
     }
 
     // Compare Data
     function compareData() {
-        let dataSet1 = parseData(document.getElementById("dataSet1").value);
-        let dataSet2 = parseData(document.getElementById("dataSet2").value);
+        let { dataMap: dataSet1, duplicateKeys: dup1 } = parseData(document.getElementById("dataSet1").value);
+        let { dataMap: dataSet2, duplicateKeys: dup2 } = parseData(document.getElementById("dataSet2").value);
         let result = [];
+
+        // ✅ Check for Duplicates
+        if (dup1.size > 0) {
+            result.push(`🟣 Duplicate IDs found in Dataset 1: ${[...dup1].join(", ")}`);
+        }
+        if (dup2.size > 0) {
+            result.push(`🔵 Duplicate IDs found in Dataset 2: ${[...dup2].join(", ")}`);
+        }
 
         let allKeys = new Set([...dataSet1.keys(), ...dataSet2.keys()]);
 
