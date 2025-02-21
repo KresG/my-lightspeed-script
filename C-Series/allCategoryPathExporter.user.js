@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name        All Category Path Exporter
+// @name        allCategoryPathExported
 // @namespace   http://tampermonkey.net/
 // @version     1.0
-// @description Export All Categories
-// @author      Kres G - C-series Support
+// @description Export All Categories with duplicate prevention and improved progress tracking
+// @author      Kres G
 // @match       */admin/products*
 // @require     http://code.jquery.com/jquery-3.4.1.min.js
 // @require     https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
@@ -11,6 +11,7 @@
 
 var rStarted = false;
 var productDetails = [];
+const processedProductIds = new Set(); // To track processed product IDs
 const languages = ['us', 'en', 'de', 'nl']; // List of supported languages
 
 (function () {
@@ -38,7 +39,6 @@ const languages = ['us', 'en', 'de', 'nl']; // List of supported languages
         exportButton.style.backgroundColor = '#007BFF';
     });
 
-    // Append the button next to the .PageBarActions
     const pageBarActions = document.querySelector('#content .PageBarActions');
     if (pageBarActions) {
         pageBarActions.appendChild(exportButton);
@@ -65,69 +65,94 @@ const languages = ['us', 'en', 'de', 'nl']; // List of supported languages
 async function startProductExport() {
     try {
         const baseURL = `${window.location.origin}/admin/products`;
-        const productsURL = `${baseURL}.json?limit=250&page=1`;
         let page = 1;
         let hasMoreProducts = true;
+        let totalProducts = 0;
+        let processedProducts = 0;
+
+        // Fetch total product count
+        const countResponse = await fetch(`${baseURL}/count.json`);
+        const countData = await countResponse.json();
+        totalProducts = countData.count || 1;
+
+        const fetchProductDetails = async (productIds) => {
+            const promises = productIds.map(async (productId) => {
+                // Skip already processed product IDs
+                if (processedProductIds.has(productId)) return;
+
+                try {
+                    const productURL = `${baseURL}/${productId}.json`;
+                    const productData = await fetchJSON(productURL);
+
+                    if (productData && productData.product) {
+                        processedProductIds.add(productId); // Mark product as processed
+
+                        const categories = productData.product.product_categories;
+                        if (categories && categories.length > 0) {
+                            categories.forEach(category => {
+                                const categoryId = category.category.id;
+                                const categorySlug = category.category.us?.slug || "-";
+
+                                let categoryDetails = {
+                                    product_id: productId,
+                                    category_id: categoryId,
+                                    category_slug: categorySlug
+                                };
+
+                                languages.forEach(lang => {
+                                    if (category.category[lang]) {
+                                        categoryDetails[`category_${lang}_id`] = category.category[lang].id || "-";
+                                        categoryDetails[`category_${lang}_slug`] = category.category[lang].slug || "-";
+                                        categoryDetails[`category_${lang}`] = category.category[lang].fulltitle || "-";
+                                    } else {
+                                        categoryDetails[`category_${lang}_id`] = "-";
+                                        categoryDetails[`category_${lang}_slug`] = "-";
+                                        categoryDetails[`category_${lang}`] = "-";
+                                    }
+                                });
+
+                                productDetails.push(categoryDetails);
+                            });
+                        } else {
+                            const emptyDetails = {
+                                product_id: productId,
+                                category_id: "-",
+                                category_slug: "-"
+                            };
+                            languages.forEach(lang => {
+                                emptyDetails[`category_${lang}_id`] = "-";
+                                emptyDetails[`category_${lang}_slug`] = "-";
+                                emptyDetails[`category_${lang}`] = "-";
+                            });
+                            productDetails.push(emptyDetails);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error fetching details for product ${productId}:`, error.message);
+                }
+                processedProducts++;
+                console.log(`Progress: ${processedProducts}/${totalProducts} (${((processedProducts / totalProducts) * 100).toFixed(2)}%)`);
+            });
+
+            await Promise.all(promises);
+        };
 
         while (hasMoreProducts) {
-            const productsData = await fetchJSON(`${baseURL}.json?limit=250&page=${page}`);
+            try {
+                const productsData = await fetchJSON(`${baseURL}.json?limit=50&page=${page}`);
+                if (!productsData || !productsData.products || productsData.products.length === 0) {
+                    hasMoreProducts = false;
+                    break;
+                }
 
-            if (!productsData || !productsData.products || productsData.products.length === 0) {
-                hasMoreProducts = false;
+                const productIds = productsData.products.map(p => p.id);
+                await fetchProductDetails(productIds);
+
+                page++;
+            } catch (error) {
+                console.error(`Error fetching product page ${page}:`, error.message);
                 break;
             }
-
-            const productIds = productsData.products.map(p => p.id);
-
-            for (const productId of productIds) {
-                const productURL = `${baseURL}/${productId}.json`;
-                const productData = await fetchJSON(productURL);
-
-                if (productData && productData.product) {
-                    const categories = productData.product.product_categories;
-
-                    if (categories && categories.length > 0) {
-                        categories.forEach(category => {
-                            const categoryId = category.category.id;
-                            const categorySlug = (category.category.us && category.category.us.slug) ? category.category.us.slug : "-"; // Safe check for slug
-
-                            let categoryDetails = {
-                                product_id: productId,
-                                category_id: categoryId,
-                                category_slug: categorySlug
-                            };
-
-                            languages.forEach(lang => {
-                                if (category.category[lang]) { 
-                                    categoryDetails[`category_${lang}_id`] = category.category[lang].id || "-";
-                                    categoryDetails[`category_${lang}_slug`] = category.category[lang].slug || "-";
-                                    categoryDetails[`category_${lang}`] = category.category[lang].fulltitle || "-";
-                                } else {
-                                    categoryDetails[`category_${lang}_id`] = "-";
-                                    categoryDetails[`category_${lang}_slug`] = "-";
-                                    categoryDetails[`category_${lang}`] = "-";
-                                }
-                            });
-
-                            productDetails.push(categoryDetails);
-                        });
-                    } else {
-                        const emptyDetails = {
-                            product_id: productId,
-                            category_id: "-",
-                            category_slug: "-"
-                        };
-                        languages.forEach(lang => {
-                            emptyDetails[`category_${lang}_id`] = "-";
-                            emptyDetails[`category_${lang}_slug`] = "-";
-                            emptyDetails[`category_${lang}`] = "-";
-                        });
-                        productDetails.push(emptyDetails);
-                    }
-                }
-            }
-
-            page++;
         }
 
         exporter();
@@ -138,18 +163,23 @@ async function startProductExport() {
 }
 
 async function fetchJSON(url) {
-    const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
 
-    if (!response.ok) {
-        throw new Error(`Failed to fetch data from ${url}: ${response.statusText}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch data from ${url}: ${response.statusText}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error(`FetchJSON error for ${url}:`, error.message);
+        throw error;
     }
-
-    return await response.json();
 }
 
 function escapeCSV(value) {
