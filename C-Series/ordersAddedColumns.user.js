@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @author       Kres G.
-// @description  Adds Payment provider, order ID and region data to the orders page
+// @description  Adds Payment provider, Order ID, Shipping Region, and Shipment Type data to the orders page
 // @match        */admin/orders*
 // @grant        none
 // ==/UserScript==
@@ -58,8 +58,19 @@
             if (orderIdHeader) {
                 const regionHeaderCell = document.createElement('th');
                 regionHeaderCell.classList.add('region-header');
-                regionHeaderCell.innerText = 'Region';
+                regionHeaderCell.innerText = 'S Region';
                 orderIdHeader.insertAdjacentElement('afterend', regionHeaderCell);
+            }
+        }
+
+        // Insert Shipment Method ID Header
+        if (!tableHeaderRow.querySelector('.shipment-method-header')) {
+            const regionHeader = tableHeaderRow.querySelector('.region-header');
+            if (regionHeader) {
+                const shipmentMethodHeaderCell = document.createElement('th');
+                shipmentMethodHeaderCell.classList.add('shipment-method-header');
+                shipmentMethodHeaderCell.innerText = 'Shipment Type';
+                regionHeader.insertAdjacentElement('afterend', shipmentMethodHeaderCell);
             }
         }
 
@@ -99,6 +110,15 @@
                     regionCell.classList.add('region-cell');
                     regionCell.innerText = order.shipping_address_region_name || 'N/A';
                     orderIdCell.insertAdjacentElement('afterend', regionCell);
+                }
+
+                // Insert Shipment Method ID Data
+                let shipmentMethodCell = row.querySelector('.shipment-method-cell');
+                if (!shipmentMethodCell) {
+                    shipmentMethodCell = document.createElement('td');
+                    shipmentMethodCell.classList.add('shipment-method-cell');
+                    shipmentMethodCell.innerText = order.shipment_provider_key || 'N/A';
+                    regionCell.insertAdjacentElement('afterend', shipmentMethodCell);
                 }
             }
         });
