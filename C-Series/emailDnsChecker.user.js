@@ -2,7 +2,7 @@
 // @name         Email DNS Records Checker
 // @namespace    http://tampermonkey.net/
 // @match        */admin/settings/company/email_dns
-// @version      1.2
+// @version      1.3
 // @author       Kres G - eCom Support
 // @description  Display DNS records, check CNAME, DMARC, and DKIM records using Google DNS API
 // @grant        none
@@ -44,7 +44,8 @@
 
             // Navigate to the DNS array in the JSON data
             const domains = data?.shop?.data?.email_validation?.domains;
-            const domainKey = Object.keys(domains).pop(); // Get the last domain key
+            //const domainKey = Object.keys(domains).pop(); // Get the last domain key
+            const domainKey = Object.keys(domains)[0];  // Get the first domain key
             const dnsRecords = domains?.[domainKey]?.dns;
 
             if (!dnsRecords || !Array.isArray(dnsRecords)) {
